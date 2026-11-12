@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>みつかるレシピ帳（試作v1）</title>
+<title>レシピ</title>
+<meta name="apple-mobile-web-app-title" content="レシピ">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
 <style>
 :root{--bg:#fff8f1;--card:#ffffff;--ink:#2b2118;--sub:#8a7a68;--accent:#e4572e;--accent2:#f2a03d;--line:#f0e2d0;--chip:#fdeee1;--ok:#2e933c}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -58,8 +62,8 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 </head>
 <body>
 <header>
-<h1>🍳 みつかるレシピ帳</h1>
-<p class="tagline">試作v1 ／ 保存した料理を「見た目」で見つけるためのレシピ帳</p>
+<h1>🍳 レシピ</h1>
+<p class="tagline">保存した料理を「見た目」で見つけるためのレシピ帳</p>
 <div id="searchBox">
 <input type="search" id="q" placeholder="料理名・材料でさがす（例：ささみ、鍋）">
 <div class="chips" id="chips">
@@ -247,7 +251,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.1';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.2';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
