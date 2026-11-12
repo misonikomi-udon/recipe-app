@@ -130,6 +130,27 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <!-- 詳細 -->
 <section class="view" id="view-detail"></section>
 
+<!-- 編集 -->
+<section class="view" id="view-edit">
+<button class="btn ghost" style="margin-top:0" onclick="backToDetail()">← 編集をやめる</button>
+<h2 style="margin-top:12px">レシピを編集</h2>
+<label class="f">料理名</label>
+<input type="text" id="eTitle">
+<div class="row">
+<div><label class="f">何人前</label><input type="text" id="eServ"></div>
+<div><label class="f">投稿者</label><input type="text" id="eAuthor"></div>
+</div>
+<label class="f">材料（1行に1つ。グループ見出しは「#タレ」のように # で）</label>
+<textarea id="eIng" rows="9"></textarea>
+<label class="f">手順（1行に1ステップ）</label>
+<textarea id="eSteps" rows="7"></textarea>
+<label class="f">メモ</label>
+<textarea id="eNote" rows="2"></textarea>
+<label class="f">出典URL</label>
+<input type="text" id="eUrl">
+<button class="btn" id="btnEditSave">編集を保存する</button>
+</section>
+
 <!-- 買い物 -->
 <section class="view" id="view-shop">
 <h2 style="margin-top:2px">買い物リスト</h2>
@@ -255,6 +276,7 @@ ${r.note?`<div class="note">${esc(r.note)}</div>`:''}${r.needsVideo?'<p class="h
 ${r.made?`<button class="btn ghost" onclick="addMade('${r.id}')">＋ もう1回作った（今まで ${r.madeCount||1} 回）</button>`:''}
 <button class="btn ${r.inShop?'ghost':'sub'}" onclick="toggleShop('${r.id}')">${r.inShop?'✓ 買い物リストに入ってます（外す）':'🛒 買い物リストに入れる'}</button>
 <p style="margin-top:16px">出典：<a class="src" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></p>
+<button class="btn sub" onclick="openEdit('${r.id}')">✏️ 内容を編集する</button>
 <button class="btn ghost" onclick="delRecipe('${r.id}')">このレシピを削除</button>`;
 show('detail');
 }
@@ -263,6 +285,14 @@ function toggleMade(id){const r=recipes.find(x=>x.id===id);r.made=!r.made;if(r.m
 function addMade(id){const r=recipes.find(x=>x.id===id);r.made=true;r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function toggleShop(id){const r=recipes.find(x=>x.id===id);r.inShop=!r.inShop;save();openDetail(id);}
 function delRecipe(id){if(!confirm('このレシピを削除しますか？'))return;recipes=recipes.filter(x=>x.id!==id);save();show('list');}
+function parseIngLines(text){let group='';const out=[];for(const l of text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)){if(l.startsWith('#')){group=l.slice(1);continue;}const sa=splitAmount(l);out.push({g:group,name:sa.name,amount:sa.amount});}return out;}
+function ingToText(ings){let last=null;const arr=[];for(const i of (ings||[])){if(i.g&&i.g!==last){arr.push('#'+i.g);last=i.g;}arr.push(i.name+(i.amount?' '+i.amount:''));}return arr.join('\n');}
+let editingId=null;
+function openEdit(id){const r=recipes.find(x=>x.id===id);if(!r)return;editingId=id;
+document.getElementById('eTitle').value=r.title||'';document.getElementById('eServ').value=r.servings||'';document.getElementById('eAuthor').value=r.author||'';
+document.getElementById('eIng').value=ingToText(r.ingredients);document.getElementById('eSteps').value=(r.steps||[]).join('\n');document.getElementById('eNote').value=r.note||'';document.getElementById('eUrl').value=(r.url&&r.url!=='#')?r.url:'';
+show('edit');}
+function backToDetail(){if(editingId)openDetail(editingId);else show('list');}
 
 function renderShop(){
 const map=new Map();
@@ -358,9 +388,7 @@ if(!p.ingredients.length)alert('材料がテキストから見つからなかっ
 document.getElementById('btnSave').onclick=()=>{
 const url=document.getElementById('inUrl').value.trim();
 const text=document.getElementById('inText').value;
-const ingLines=document.getElementById('outIng').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-let group='';const ingredients=[];
-for(const l of ingLines){if(l.startsWith('#')){group=l.slice(1);continue;}const sa=splitAmount(l);ingredients.push({g:group,name:sa.name,amount:sa.amount});}
+const ingredients=parseIngLines(document.getElementById('outIng').value);
 const steps=document.getElementById('outSteps').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
 const id=ytId(url)||ytId(text);
 const r={id:'r'+Date.now(),title:document.getElementById('outTitle').value.trim()||'無題のレシピ',
@@ -373,6 +401,16 @@ recipes.unshift(r);save();
 document.getElementById('inUrl').value='';document.getElementById('inText').value='';document.getElementById('parseResult').style.display='none';editingCover='';
 show('list');
 };
+document.getElementById('btnEditSave').onclick=()=>{
+const r=recipes.find(x=>x.id===editingId);if(!r)return;
+r.title=document.getElementById('eTitle').value.trim()||r.title;
+r.servings=document.getElementById('eServ').value.trim();r.author=document.getElementById('eAuthor').value.trim();
+r.ingredients=parseIngLines(document.getElementById('eIng').value);
+r.steps=document.getElementById('eSteps').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+r.note=document.getElementById('eNote').value.trim();
+const u=document.getElementById('eUrl').value.trim();if(u){r.url=u;r.source=detectSource(u);}
+r.needsVideo=r.ingredients.length===0;
+save();openDetail(r.id);};
 document.getElementById('btnExport').onclick=()=>{
 const data=JSON.stringify({app:'mitsukaru-recipe',version:1,exportedAt:new Date().toISOString(),recipes},null,2);
 const blob=new Blob([data],{type:'application/json'});
