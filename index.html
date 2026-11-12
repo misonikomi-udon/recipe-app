@@ -53,6 +53,7 @@ ul.shop li label{display:flex;gap:10px;align-items:center;background:#fff;border
 ul.shop li.done label{color:var(--sub);text-decoration:line-through}
 a.src{color:var(--accent);word-break:break-all;font-size:13px}
 .row{display:flex;gap:8px}.row>*{flex:1}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:88px;background:#2f2a26;color:#fff;padding:11px 20px;border-radius:999px;font-size:14px;display:none;z-index:60;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:88vw;text-align:center}
 </style>
 </head>
 <body>
@@ -125,6 +126,7 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <textarea id="outNote" rows="2"></textarea>
 <button class="btn" id="btnSave">この内容で保存する</button>
 </div>
+<button class="btn ghost" id="btnClearForm">入力をすべて消す</button>
 </section>
 
 <!-- 詳細 -->
@@ -174,6 +176,7 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <button class="btn ghost" id="btnReset">初期データ（サンプル2件）に戻す</button>
 </section>
 </main>
+<div id="toast"></div>
 
 <nav>
 <button data-nav="list" class="on">📷 一覧</button>
@@ -287,6 +290,8 @@ function toggleShop(id){const r=recipes.find(x=>x.id===id);r.inShop=!r.inShop;sa
 function delRecipe(id){if(!confirm('このレシピを削除しますか？'))return;recipes=recipes.filter(x=>x.id!==id);save();show('list');}
 function parseIngLines(text){let group='';const out=[];for(const l of text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)){if(l.startsWith('#')){group=l.slice(1);continue;}const sa=splitAmount(l);out.push({g:group,name:sa.name,amount:sa.amount});}return out;}
 function ingToText(ings){let last=null;const arr=[];for(const i of (ings||[])){if(i.g&&i.g!==last){arr.push('#'+i.g);last=i.g;}arr.push(i.name+(i.amount?' '+i.amount:''));}return arr.join('\n');}
+function clearForm(){document.getElementById('inUrl').value='';document.getElementById('inText').value='';const cf=document.getElementById('inCover');if(cf)cf.value='';document.getElementById('parseResult').style.display='none';const sb=document.getElementById('btnSave');if(sb)sb.disabled=false;editingCover='';}
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.style.display='block';setTimeout(()=>{t.style.display='none';},2600);}
 let editingId=null;
 function openEdit(id){const r=recipes.find(x=>x.id===id);if(!r)return;editingId=id;
 document.getElementById('eTitle').value=r.title||'';document.getElementById('eServ').value=r.servings||'';document.getElementById('eAuthor').value=r.author||'';
@@ -381,11 +386,12 @@ document.getElementById('outServ').value=p.servings;
 document.getElementById('outIng').value=p.ingredients.map(i=>(i.g?'#'+i.g+'\n':'')+i.name+(i.amount?' '+i.amount:'')).join('\n').replace(/(#.+)\n\1\n/g,'$1\n');
 document.getElementById('outSteps').value=p.steps.join('\n');
 document.getElementById('outNote').value=p.note||'';
-document.getElementById('parseResult').style.display='block';
+document.getElementById('parseResult').style.display='block';document.getElementById('btnSave').disabled=false;
 document.getElementById('parseResult').scrollIntoView({behavior:'smooth'});
 if(!p.ingredients.length)alert('材料がテキストから見つからなかったよ。このまま保存すると「動画から抽出が必要」カードになります。');
 };
 document.getElementById('btnSave').onclick=()=>{
+const sb=document.getElementById('btnSave');if(sb.disabled)return;sb.disabled=true;
 const url=document.getElementById('inUrl').value.trim();
 const text=document.getElementById('inText').value;
 const ingredients=parseIngLines(document.getElementById('outIng').value);
@@ -397,10 +403,14 @@ source:detectSource(url),url:url||'#',cover:editingCover||(id?'https://i.ytimg.c
 emoji:'🍳',needsVideo:ingredients.length===0,
 note:(document.getElementById('outNote').value.trim()||(ingredients.length===0?'テキストから材料が取れなかった投稿です。AIのまとめを貼るとカード化できます。':'' )),
 ingredients,steps,inShop:false,made:false,madeCount:0,created:Date.now()};
+const dup=recipes.find(x=>x.title===r.title&&JSON.stringify(x.ingredients)===JSON.stringify(r.ingredients)&&JSON.stringify(x.steps)===JSON.stringify(r.steps));
+if(dup&&!confirm('同じ内容のレシピがすでに保存されています。それでももう1件保存しますか？')){sb.disabled=false;return;}
 recipes.unshift(r);save();
-document.getElementById('inUrl').value='';document.getElementById('inText').value='';document.getElementById('parseResult').style.display='none';editingCover='';
+clearForm();
 show('list');
+toast('保存しました ✓ '+r.title);
 };
+document.getElementById('btnClearForm').onclick=()=>{if(!confirm('取り込み画面の入力を全部消しますか？（保存済みのレシピは消えません）'))return;clearForm();toast('入力を消しました');};
 document.getElementById('btnEditSave').onclick=()=>{
 const r=recipes.find(x=>x.id===editingId);if(!r)return;
 r.title=document.getElementById('eTitle').value.trim()||r.title;
