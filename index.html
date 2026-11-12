@@ -251,7 +251,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.2';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.3';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -464,9 +464,9 @@ try{
 const parsed=JSON.parse(rd.result);
 const arr=Array.isArray(parsed)?parsed:parsed.recipes;
 if(!Array.isArray(arr))throw new Error('bad format');
-const ids=new Set(recipes.map(r=>r.id)); let added=0;
-for(const r of arr){ if(r&&r.id&&r.title&&!ids.has(r.id)){ if(r.made===undefined)r.made=false; if(!r.madeCount)r.madeCount=0; if(!Array.isArray(r.ingredients))r.ingredients=[]; if(!Array.isArray(r.steps))r.steps=[]; recipes.push(r); ids.add(r.id); added++; } }
-save(); alert(added+'件のレシピを追加しました。'); show('list');
+const ids=new Set(recipes.map(r=>r.id)); let added=0; let fixed=0;
+for(const r of arr){ if(r&&r.id&&r.title){ if(!ids.has(r.id)){ if(r.made===undefined)r.made=false; if(!r.madeCount)r.madeCount=0; if(!Array.isArray(r.ingredients))r.ingredients=[]; if(!Array.isArray(r.steps))r.steps=[]; recipes.push(r); ids.add(r.id); added++; } else { const ex=recipes.find(x=>x.id===r.id); if(ex&&!ex.cover&&r.cover){ ex.cover=r.cover; fixed++; } } } }
+save(); alert(added+'件のレシピを追加しました。'+(fixed?'（写真が付いていなかった'+fixed+'件に、バックアップの写真を付けました）':'')); show('list');
 }catch(e){ alert('読み込めませんでした。書き出したファイルかどうか確認してね。'); }
 };
 rd.readAsText(f);
