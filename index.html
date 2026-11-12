@@ -251,7 +251,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.5';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.6';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -417,7 +417,7 @@ const text=document.getElementById('inText').value;
 const p=parseText(text);
 document.getElementById('outTitle').value=p.title||'（料理名を入力してね）';
 document.getElementById('outServ').value=p.servings;
-document.getElementById('outIng').value=p.ingredients.map(i=>(i.g?'#'+i.g+'\n':'')+i.name+(i.amount?' '+i.amount:'')).join('\n').replace(/(#.+)\n\1\n/g,'$1\n');
+document.getElementById('outIng').value=ingToText(p.ingredients);
 document.getElementById('outSteps').value=p.steps.join('\n');
 document.getElementById('outNote').value=p.note||'';
 document.getElementById('parseResult').style.display='block';document.getElementById('btnSave').disabled=false;
