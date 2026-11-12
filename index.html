@@ -173,6 +173,8 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <label class="f">読み込み（バックアップから戻す）</label>
 <input type="file" id="importFile" accept=".json,application/json">
 <p class="hint">読み込むと、今あるレシピに「まだ無いもの」だけが追加されます（同じIDのものは重複しません）。</p>
+<button class="btn sub" id="btnShrink">📷 表紙を圧縮して容量を空ける</button>
+<p class="hint">表紙の写真が大きいと保存容量がいっぱいになり、新しいレシピが保存できなくなることがあります。このボタンで今の表紙を全部小さくし直します（見た目はほとんど変わりません）。</p>
 <button class="btn ghost" id="btnReset">初期データ（サンプル2件）に戻す</button>
 </section>
 </main>
@@ -224,7 +226,8 @@ inShop:false,made:false,madeCount:0,created:1}
 ];
 }
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length){r.forEach(x=>{if(x.made===undefined)x.made=false;if(!x.madeCount)x.madeCount=0;});return r;}}catch(e){} return seed();}
-function save(){localStorage.setItem(KEY,JSON.stringify(recipes));}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(recipes));return true;}catch(e){alert('保存できませんでした。ブラウザの保存容量がいっぱいの可能性があります。\nデータ画面の「表紙を圧縮して容量を空ける」を試してから、もう一度保存してください。');return false;}}
+function readCoverFile(file,cb){const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const max=900;const s=Math.min(1,max/Math.max(img.width,img.height));const w=Math.max(1,Math.round(img.width*s)),h=Math.max(1,Math.round(img.height*s));const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',0.82));};img.onerror=()=>cb(rd.result);img.src=rd.result;};rd.readAsDataURL(file);}
 function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function grad(t){let h=0;for(const c of (t||'料'))h=(h*31+c.charCodeAt(0))%360;return `linear-gradient(135deg,hsl(${h},65%,55%),hsl(${(h+50)%360},70%,45%))`;}
 
@@ -234,7 +237,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data')document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件';
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 保存データ量：約'+kb+'KB（上限の目安は約5,000KB）';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -283,7 +286,7 @@ ${r.made?`<button class="btn ghost" onclick="addMade('${r.id}')">＋ もう1回�
 <button class="btn ghost" onclick="delRecipe('${r.id}')">このレシピを削除</button>`;
 show('detail');
 }
-function changeCover(ev,id){const f=ev.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const r=recipes.find(x=>x.id===id);r.cover=rd.result;save();openDetail(id);};rd.readAsDataURL(f);}
+function changeCover(ev,id){const f=ev.target.files[0];if(!f)return;readCoverFile(f,d=>{const r=recipes.find(x=>x.id===id);const old=r.cover;r.cover=d;if(!save())r.cover=old;openDetail(id);});}
 function toggleMade(id){const r=recipes.find(x=>x.id===id);r.made=!r.made;if(r.made)r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function addMade(id){const r=recipes.find(x=>x.id===id);r.made=true;r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function toggleShop(id){const r=recipes.find(x=>x.id===id);r.inShop=!r.inShop;save();openDetail(id);}
@@ -376,7 +379,7 @@ if(joined){const parts=joined.split(/[①-⑫]/).map(s=>s.trim()).filter(s=>s.le
 return{title,servings,ingredients,steps,note};
 }
 document.getElementById('btnCopyPrompt').onclick=()=>{const t=document.getElementById('aiPrompt');t.select();if(navigator.clipboard)navigator.clipboard.writeText(t.value);if(document.execCommand)document.execCommand('copy');alert('聞き方をコピーしました。YouTubeのAIなどに貼って使ってね。');};
-document.getElementById('inCover').addEventListener('change',ev=>{const f=ev.target.files[0];if(!f){editingCover='';return;}const rd=new FileReader();rd.onload=()=>editingCover=rd.result;rd.readAsDataURL(f);});
+document.getElementById('inCover').addEventListener('change',ev=>{const f=ev.target.files[0];if(!f){editingCover='';return;}readCoverFile(f,d=>{editingCover=d;});});
 document.getElementById('btnParse').onclick=()=>{
 const url=document.getElementById('inUrl').value.trim();
 const text=document.getElementById('inText').value;
@@ -405,7 +408,7 @@ note:(document.getElementById('outNote').value.trim()||(ingredients.length===0?'
 ingredients,steps,inShop:false,made:false,madeCount:0,created:Date.now()};
 const dup=recipes.find(x=>x.title===r.title&&JSON.stringify(x.ingredients)===JSON.stringify(r.ingredients)&&JSON.stringify(x.steps)===JSON.stringify(r.steps));
 if(dup&&!confirm('同じ内容のレシピがすでに保存されています。それでももう1件保存しますか？')){sb.disabled=false;return;}
-recipes.unshift(r);save();
+recipes.unshift(r);if(!save()){recipes.shift();sb.disabled=false;return;}
 clearForm();
 show('list');
 toast('保存しました ✓ '+r.title);
@@ -452,6 +455,9 @@ save(); alert(added+'件のレシピを追加しました。'); show('list');
 };
 rd.readAsText(f);
 });
+async function shrinkCovers(){let n=0;for(const r of recipes){if(r.cover&&r.cover.indexOf('data:image')===0){const small=await new Promise(res=>{const img=new Image();img.onload=()=>{const max=900;const s=Math.min(1,max/Math.max(img.width,img.height));if(s>=1){res(r.cover);return;}const w=Math.round(img.width*s),h=Math.round(img.height*s);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',0.82));};img.onerror=()=>res(r.cover);img.src=r.cover;});if(small!==r.cover){r.cover=small;n++;}}}
+if(save()){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);alert('表紙を圧縮しました（'+n+'件）。今の保存データ量は約'+kb+'KBです。');show('data');}}
+document.getElementById('btnShrink').onclick=()=>{if(!confirm('表紙の写真を小さく圧縮しますか？（保存容量を空けるためです。見た目はほとんど変わりません）'))return;shrinkCovers();};
 document.getElementById('btnReset').onclick=()=>{ if(!confirm('今のレシピを消して、初期のサンプル2件に戻しますか？（書き出ししていないデータは消えます）'))return; localStorage.removeItem(KEY); recipes=seed(); save(); show('list'); };
 renderList();
 </script>
