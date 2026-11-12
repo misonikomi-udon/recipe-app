@@ -247,7 +247,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.0';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.1';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -328,7 +328,7 @@ function splitAmount(line){
 const m=line.match(/^(.+?)[\s　]+((?:大さじ|小さじ|少々|適量|たっぷり|ちょろっと|ひとつまみ|半分|約)?[\d０-９\.\/〜~\-＋+].*|[0-9０-９]+(?:g|kg|ml|cc|個|本|枚|玉|束|袋|缶|パック|株|片|房|切れ).*|適量|少々|ちょろっと)$/);
 if(m)return{name:m[1].trim(),amount:m[2].trim()}; return{name:line.trim(),amount:''};
 }
-function stripTs(s){return s.replace(/\s*[（(]\d{1,2}:\d{2}(?:\s*[-〜~]\s*\d{1,2}:\d{2})?[）)]\s*。?\s*$/,'');}
+function stripTs(s){let r=s.replace(/\s*[（(]\d{1,2}:\d{2}(?:\s*[-〜~]\s*\d{1,2}:\d{2})?[）)]/g,'');r=r.replace(/\s*[（(]\d{1,2}:\d{2}(?:\s*[-〜~]\s*\d{1,2}:\d{2})?[）)]\s*。?\s*$/,'');return r.replace(/\s{2,}/g,' ').trim();}
 function parseText(text){
 const clean0=(text||'').replace(/\*\*/g,'').replace(/__/g,'');
 const lines=clean0.split(/\r?\n/).map(s=>s.trim().replace(/^#{1,6}\s+/,''));
@@ -359,7 +359,7 @@ continue;
 }
 const numM=raw.match(/^(\d{1,2})[\.、\)]\s*(.+)/);
 if(/^[①-⑫]/.test(raw)||(inSteps&&numM)||(inSteps&&bullet)){
-let s=raw.replace(/^[①-⑫]\s*/,''); if(numM)s=numM[2]; s=s.replace(/^[・\-\*•]\s*/,''); s=stripTs(s);
+let s=raw.replace(/^[①-⑫]\s*/,''); if(numM)s=numM[2]; s=s.replace(/^[・\-\*•]\s*/,''); s=stripTs(s); s=s.replace(/^([^、。]{1,16}?)\s*[:：]\s*/,'');
 if(s)steps.push(s); inSteps=true; continue;
 }
 if(steps.length&&raw.length<=30&&/。$/.test(raw)&&/(乗せ|のせ|盛り|かけ|完成|できあがり|出来上がり)/.test(raw)){steps.push(raw);continue;}
@@ -370,15 +370,17 @@ if(bracket)title=bracket[1];
 else if(raw.length>=2&&raw.length<=40&&!/#/.test(raw)&&!/https?:/.test(raw)&&!bullet&&!/[:：]$/.test(raw))title=raw.replace(/^\\?\s*/,'').replace(/\s*\/\s*$/,'');
 }
 }
+if(!title){const tm=clean0.match(/「([^」]{2,30})」は/)||clean0.match(/^([^\n、。]{2,25}?)」は/m);if(tm)title=tm[1].trim();}
 if(ingredients.length<3){
 const seenS=new Set(ingredients.map(i=>i.name));
-const pushIng=(n,a)=>{n=(n||'').replace(/^[・\s　]+/,'').replace(/^[①-⑫]+/,'').replace(/各\s*$/,'');if(n!=='しょうが'&&n!=='にんにく'){n=n.replace(/^[にをとがはのへで](?=[ぁ-んァ-ヶ一-龥ー]{2})/,'');if(n.length>3)n=n.replace(/(を|に|と|は)$/,'');}n=n.trim();if(!n||n.length>12||seenS.has(n))return;if(/(炒め|絡め|乗せ|煮詰|焼き|切り|混ぜ|止め|駆られ|伸ばせ|ふき|軽く|余分)/.test(n))return;seenS.add(n);ingredients.push({g:'',name:n,amount:(a||'').replace(/\s/g,'')});};
-const amtRe='(?:大さじ|小さじ)\\s*[\\d０-９]+(?:\\s*と\\s*[\\d０-９]+)?(?:\\/[\\d０-９]+)?|[\\d０-９]+(?:\\.[\\d０-９]+)?\\s*(?:g|kg|ml|cc|個|本|枚|玉|束|袋|缶|パック|片|房|切れ|cm|株|粒|かけ)';
+const pushIng=(n,a)=>{n=(n||'').replace(/^[・\s　]+/,'').replace(/^[①-⑫]+/,'').replace(/各\s*$/,'');if(n!=='しょうが'&&n!=='にんにく'){n=n.replace(/^[にをとがはのへで](?=[ぁ-んァ-ヶ一-龥ー]{2})/,'');if(n.length>3)n=n.replace(/(を|に|と|は)$/,'');}n=n.replace(/^(フライパン|耐熱容器|ボウル|容器|鍋|皿|器)[にへで]/,'');n=n.trim();if(!n||n.length>12||seenS.has(n))return;if(/(炒め|絡め|乗せ|煮詰|焼き|切り|混ぜ|止め|駆られ|伸ばせ|ふき|軽く|余分)/.test(n))return;seenS.add(n);ingredients.push({g:'',name:n,amount:(a||'').replace(/\s/g,'')});};
+const amtRe='(?:大さじ|小さじ)\\s*[\\d０-９]+(?:\\s*と\\s*[\\d０-９]+)?(?:\\/[\\d０-９]+)?|[\\d０-９]+(?:\\.[\\d０-９]+)?\\s*(?:g|kg|ml|cc|個|本|枚|玉|束|袋|缶|パック|片|房|切れ|cm|株|粒|かけ|振り)';
 const norm=clean0.replace(/[［\[【]/g,'、').replace(/[］\]】]/g,'、');
 for(const m of norm.matchAll(new RegExp('([^。\\n]{1,60}?)各\\s*('+amtRe+')','g'))){
 for(let part of m[1].split(/[、,]/)){part=part.trim();if(part.includes('を'))part=part.split('を').pop();part=part.replace(/^(まぶし|まぶして|加えて|入れて|混ぜて|ふって)/,'');pushIng(part,m[2]);}
 }
-for(const m of norm.matchAll(new RegExp('([ぁ-んァ-ヶ一-龥ー・]{1,12}?)\\s*('+amtRe+')','g'))){pushIng(m[1],m[2]);}
+const norm2=norm.replace(/([ぁ-んァ-ヶ一-龥ー・])[（\(]((?:大さじ|小さじ)\s*[\d０-９][^）\)]*|[\d０-９][^）\)]*)[）\)]/g,'$1 $2');
+for(const m of norm2.matchAll(new RegExp('([ぁ-んァ-ヶ一-龥ー・]{1,12}?)\\s*('+amtRe+')','g'))){pushIng(m[1],m[2]);}
 const zai=norm.match(/材料[^。\n]{0,90}/);
 if(zai){for(const part of zai[0].replace(/^材料\s*(?:は|です)?[:：]?/,'').split(/[、・,]/)){const p=part.trim();if(!p)continue;const sm=p.match(new RegExp('^(.+?)\\s*('+amtRe+')$'));if(sm)pushIng(sm[1],sm[2]);else if(p.length<=10)pushIng(p,'');}}
 }
