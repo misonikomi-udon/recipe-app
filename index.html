@@ -251,7 +251,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.3';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.4';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -292,7 +292,7 @@ ${r.note?`<div class="note">${esc(r.note)}</div>`:''}${r.needsVideo?'<p class="h
 <h3>手順</h3>${r.steps.length?`<ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<p class="hint">手順はまだ抽出できていません。</p>'}
 <label class="f">表紙の写真を変更（完成図のスクショなど）</label>
 <input type="file" accept="image/*" onchange="changeCover(event,'${r.id}')">
-<button class="btn sub" onclick="toggleMade('${r.id}')">${r.made?'✓ 作ったことあります（タップで「まだ」に戻す）':'🍳 作ったことにする'}</button>
+<button class="btn sub" onclick="toggleMade('${r.id}')">${r.made?'✓ 作ったことある（タップで「まだ」に戻す）':'🍳 作ったことある'}</button>
 ${r.made?`<button class="btn ghost" onclick="addMade('${r.id}')">＋ もう1回作った（今まで ${r.madeCount||1} 回）</button>`:''}
 <button class="btn ${r.inShop?'ghost':'sub'}" onclick="toggleShop('${r.id}')">${r.inShop?'✓ 買い物リストに入ってます（外す）':'🛒 買い物リストに入れる'}</button>
 <p style="margin-top:16px">出典：<a class="src" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></p>
