@@ -251,7 +251,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.4';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.5';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -329,14 +329,14 @@ document.getElementById('btnClearShop').onclick=()=>{document.querySelectorAll('
 function detectSource(url){if(!url)return 'other';if(/tiktok\.com/.test(url))return 'TikTok';if(/x\.com|twitter\.com/.test(url))return 'X';if(/youtube\.com|youtu\.be/.test(url))return 'YouTube';return 'other';}
 function ytId(s){const m=(s||'').match(/(?:youtu\.be\/|[?&]v=|shorts\/)([\w-]{11})/);return m?m[1]:null;}
 function splitAmount(line){
-const m=line.match(/^(.+?)[\s　]+((?:大さじ|小さじ|少々|適量|たっぷり|ちょろっと|ひとつまみ|半分|約)?[\d０-９\.\/〜~\-＋+].*|[0-9０-９]+(?:g|kg|ml|cc|個|本|枚|玉|束|袋|缶|パック|株|片|房|切れ).*|適量|少々|ちょろっと)$/);
+const m=line.match(/^(.+?)[\s　]+((?:大さじ|小さじ|少々|適量|たっぷり|ちょろっと|ひとつまみ|半分|約)?[\d０-９\.\/〜~\-＋+].*|[0-9０-９]+(?:\/[0-9０-９]+)?(?:g|kg|ml|cc|リットル|個|本|枚|玉|束|袋|缶|パック|株|片|房|切れ|粒|かけ).*|適量|少々|ちょろっと)$/);
 if(m)return{name:m[1].trim(),amount:m[2].trim()}; return{name:line.trim(),amount:''};
 }
 function stripTs(s){let r=s.replace(/\s*[（(]\d{1,2}:\d{2}(?:\s*[-〜~]\s*\d{1,2}:\d{2})?[）)]/g,'');r=r.replace(/\s*[（(]\d{1,2}:\d{2}(?:\s*[-〜~]\s*\d{1,2}:\d{2})?[）)]\s*。?\s*$/,'');return r.replace(/\s{2,}/g,' ').trim();}
 function parseText(text){
 const clean0=(text||'').replace(/\*\*/g,'').replace(/__/g,'');
 const lines=clean0.split(/\r?\n/).map(s=>s.trim().replace(/^#{1,6}\s+/,''));
-let title='',servings='',ingredients=[],steps=[],note='',inIng=false,inSteps=false,inNote=false,group='';
+let title='',servings='',ingredients=[],steps=[],note='',inIng=false,inSteps=false,inNote=false,group='',headMode=true,notePoint=false;
 const servHead=clean0.match(/材料[（(]([^）)]*人前[^）)]*)[）)]/);
 const servM=servHead?null:clean0.match(/(\d+\s*[-〜~]\s*\d+\s*人前|\d+\s*人分|\d+\s*人前(?![\d０-９]*円))/);
 if(servHead)servings=servHead[1].replace(/\s/g,''); else if(servM)servings=servM[1].replace(/\s/g,'');
@@ -344,15 +344,30 @@ const titleM=clean0.match(/料理名[:：]\s*(.+)/); if(titleM)title=titleM[1].t
 for(const raw of lines){
 if(!raw)continue;
 const line=raw.replace(/^[✎✏️﹏_\s]+/,'');
-if(/^(シメ|〆|ポイント|コツ|アレンジ|備考|メモ)[:：]?$/.test(line)){inNote=true;inIng=false;inSteps=false;continue;}
-if(inNote){note+=(note?' ':'')+stripTs(raw);continue;}
+const isPointHead=line.length<=16&&/ポイント[:：]?$/.test(line);
+if(/^(シメ|〆|ポイント|コツ|アレンジ|備考|メモ)[:：]?$/.test(line)||isPointHead){inNote=true;notePoint=isPointHead;inIng=false;inSteps=false;continue;}
+if(inNote){const nm2=raw.match(/^(\d{1,2})[\.、\)]\s*(.+)/);if(notePoint&&nm2&&nm2[2].length>=10){inNote=false;notePoint=false;}else{note+=(note?' ':'')+stripTs(raw);continue;}}
 if(/^●/.test(raw)&&raw.length>=14){const t=raw.replace(/^●\s*/,'');note+=(note?' ':'')+stripTs(t);continue;}
+if(headMode){
+if(/材料/.test(line)&&line.length<=25){headMode=false;}
+else if(/(作り方|手順|ステップ)/.test(line)&&line.length<=25){headMode=false;}
+else{
+const sl=line.replace(/^[・\-\*•]\s*/,'');
+const sa0=splitAmount(sl);
+if(sa0.amount&&!/。/.test(sl)&&sl.length<=40&&!/^(\d{1,2})[\.、\)]/.test(sl)){
+let nm=sa0.name;const gm=nm.match(/^([A-ZＡ-Ｚ])(?=[ぁ-んァ-ヶ一-龥ー])/);
+if(gm){group=gm[1].replace(/[Ａ-Ｚ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));nm=nm.slice(1);}
+ingredients.push({g:group,name:nm.replace(/[:：]$/,''),amount:sa0.amount});continue;
+}
+if(/。/.test(sl)||/^(\d{1,2})[\.、\)]/.test(sl))headMode=false;
+}
+}
 if(/材料/.test(line)&&line.length<=25&&!/^・/.test(raw)){inIng=true;inSteps=false;continue;}
 if(/(作り方|手順|ステップ)/.test(line)&&line.length<=25&&!/^・/.test(raw)&&!/[①-⑫]/.test(raw)){inSteps=true;inIng=false;continue;}
 const bullet=/^[・\-\*•]/.test(raw);
 if(inIng){
 if(!bullet&&(/^[⭐︎★■◆]/.test(line)||(/[:：]$/.test(line)&&line.length<=15))){group=line.replace(/^[⭐︎★■◆\s]+/,'').replace(/[:：]$/,'');continue;}
-const clean=raw.replace(/^[・\-\*•]\s*/,'').replace(/^[A-ZＡ-Ｚ][\.、]\s*/,'');
+let clean=raw.replace(/^[・\-\*•]\s*/,'').replace(/^[A-ZＡ-Ｚ][\.、]\s*/,'');const gm3=clean.match(/^([A-ZＡ-Ｚ])(?=[ぁ-んァ-ヶ一-龥ー])/);if(gm3){group=gm3[1].replace(/[Ａ-Ｚ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));clean=clean.slice(1);}
 if(/^\(?\d+\s*[-〜~]?\d*\s*人前\)?$/.test(clean))continue;
 if(clean&&clean.length<=60&&!/。/.test(clean)){
 let sa; const cm=clean.match(/^(.+?)[:：]\s*(.+)$/);
@@ -362,7 +377,7 @@ ingredients.push({g:group,name:sa.name,amount:sa.amount});}
 continue;
 }
 const numM=raw.match(/^(\d{1,2})[\.、\)]\s*(.+)/);
-if(/^[①-⑫]/.test(raw)||(inSteps&&numM)||(inSteps&&bullet)){
+if(/^[①-⑫]/.test(raw)||(inSteps&&numM)||(inSteps&&bullet)||(numM&&numM[2].length>=12)){
 let s=raw.replace(/^[①-⑫]\s*/,''); if(numM)s=numM[2]; s=s.replace(/^[・\-\*•]\s*/,''); s=stripTs(s); s=s.replace(/^([^、。]{1,16}?)\s*[:：]\s*/,'');
 if(s)steps.push(s); inSteps=true; continue;
 }
@@ -378,7 +393,7 @@ if(!title){const tm=clean0.match(/「([^」]{2,30})」は/)||clean0.match(/^([^\
 if(ingredients.length<3){
 const seenS=new Set(ingredients.map(i=>i.name));
 const pushIng=(n,a)=>{n=(n||'').replace(/^[・\s　]+/,'').replace(/^[①-⑫]+/,'').replace(/各\s*$/,'');if(n!=='しょうが'&&n!=='にんにく'){n=n.replace(/^[にをとがはのへで](?=[ぁ-んァ-ヶ一-龥ー]{2})/,'');if(n.length>3)n=n.replace(/(を|に|と|は)$/,'');}n=n.replace(/^(フライパン|耐熱容器|ボウル|容器|鍋|皿|器)[にへで]/,'');n=n.trim();if(!n||n.length>12||seenS.has(n))return;if(/(炒め|絡め|乗せ|煮詰|焼き|切り|混ぜ|止め|駆られ|伸ばせ|ふき|軽く|余分)/.test(n))return;seenS.add(n);ingredients.push({g:'',name:n,amount:(a||'').replace(/\s/g,'')});};
-const amtRe='(?:大さじ|小さじ)\\s*[\\d０-９]+(?:\\s*と\\s*[\\d０-９]+)?(?:\\/[\\d０-９]+)?|[\\d０-９]+(?:\\.[\\d０-９]+)?\\s*(?:g|kg|ml|cc|個|本|枚|玉|束|袋|缶|パック|片|房|切れ|cm|株|粒|かけ|振り)';
+const amtRe='(?:大さじ|小さじ)\\s*[\\d０-９]+(?:\\s*と\\s*[\\d０-９]+)?(?:\\/[\\d０-９]+)?|[\\d０-９]+(?:\\.[\\d０-９]+)?(?:\\s*\\/\\s*[\\d０-９]+)?\\s*(?:g|kg|ml|cc|リットル|個|本|枚|玉|束|袋|缶|パック|片|房|切れ|cm|株|粒|かけ|振り)';
 const norm=clean0.replace(/[［\[【]/g,'、').replace(/[］\]】]/g,'、');
 for(const m of norm.matchAll(new RegExp('([^。\\n]{1,60}?)各\\s*('+amtRe+')','g'))){
 for(let part of m[1].split(/[、,]/)){part=part.trim();if(part.includes('を'))part=part.split('を').pop();part=part.replace(/^(まぶし|まぶして|加えて|入れて|混ぜて|ふって)/,'');pushIng(part,m[2]);}
