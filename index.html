@@ -173,7 +173,7 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <label class="f">読み込み（バックアップから戻す）</label>
 <input type="file" id="importFile" accept=".json,application/json">
 <p class="hint">読み込むと、今あるレシピに「まだ無いもの」だけが追加されます（同じIDのものは重複しません）。</p>
-<button class="btn sub" id="btnShrink">📷 表紙を圧縮して容量を空ける</button>
+<button class="btn sub" id="btnShrink">📷 表紙を圧縮する（軽くする）</button>
 <p class="hint">表紙の写真が大きいと保存容量がいっぱいになり、新しいレシピが保存できなくなることがあります。このボタンで今の表紙を全部小さくし直します（見た目はほとんど変わりません）。</p>
 <button class="btn ghost" id="btnReset">初期データ（サンプル2件）に戻す</button>
 </section>
@@ -226,7 +226,17 @@ inShop:false,made:false,madeCount:0,created:1}
 ];
 }
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length){r.forEach(x=>{if(x.made===undefined)x.made=false;if(!x.madeCount)x.madeCount=0;});return r;}}catch(e){} return seed();}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(recipes));return true;}catch(e){alert('保存できませんでした。ブラウザの保存容量がいっぱいの可能性があります。\nデータ画面の「表紙を圧縮して容量を空ける」を試してから、もう一度保存してください。');return false;}}
+let idbOK=false, dbPromise=null;
+function idbOpen(){if(dbPromise)return dbPromise;dbPromise=new Promise(res=>{try{const rq=indexedDB.open('mitsukaru-recipe-db',1);rq.onupgradeneeded=()=>{rq.result.createObjectStore('covers');};rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);}catch(e){res(null);}});return dbPromise;}
+async function idbPut(id,val){const db=await idbOpen();if(!db)return false;return new Promise(res=>{try{const tx=db.transaction('covers','readwrite');tx.objectStore('covers').put(val,id);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);}catch(e){res(false);}});}
+async function idbGetAll(){const db=await idbOpen();if(!db)return null;return new Promise(res=>{try{const out={};const rq=db.transaction('covers','readonly').objectStore('covers').openCursor();rq.onsuccess=()=>{const cur=rq.result;if(cur){out[cur.key]=cur.value;cur.continue();}else res(out);};rq.onerror=()=>res(null);}catch(e){res(null);}});}
+async function idbDel(id){const db=await idbOpen();if(!db)return;try{db.transaction('covers','readwrite').objectStore('covers').delete(id);}catch(e){}}
+function save(){try{
+if(idbOK){for(const r of recipes){if(r.cover&&r.cover.indexOf('data:')===0)idbPut(r.id,r.cover);}
+const slim=recipes.map(r=>{const c=Object.assign({},r);if(c.cover&&c.cover.indexOf('data:')===0)c.cover='';return c;});
+localStorage.setItem(KEY,JSON.stringify(slim));}
+else{localStorage.setItem(KEY,JSON.stringify(recipes));}
+return true;}catch(e){alert('保存できませんでした。ブラウザの保存容量がいっぱいの可能性があります。\nデータ画面の「表紙を圧縮する」を試してから、もう一度保存してください。');return false;}}
 function readCoverFile(file,cb){const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const max=768;const s=Math.min(1,max/Math.max(img.width,img.height));const w=Math.max(1,Math.round(img.width*s)),h=Math.max(1,Math.round(img.height*s));const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',0.75));};img.onerror=()=>cb(rd.result);img.src=rd.result;};rd.readAsDataURL(file);}
 function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function grad(t){let h=0;for(const c of (t||'料'))h=(h*31+c.charCodeAt(0))%360;return `linear-gradient(135deg,hsl(${h},65%,55%),hsl(${(h+50)%360},70%,45%))`;}
@@ -237,7 +247,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 保存データ量：約'+kb+'KB（上限の目安は約5,000KB） ／ アプリの版：v1.9';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.0';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -290,7 +300,7 @@ function changeCover(ev,id){const f=ev.target.files[0];if(!f)return;readCoverFil
 function toggleMade(id){const r=recipes.find(x=>x.id===id);r.made=!r.made;if(r.made)r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function addMade(id){const r=recipes.find(x=>x.id===id);r.made=true;r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function toggleShop(id){const r=recipes.find(x=>x.id===id);r.inShop=!r.inShop;save();openDetail(id);}
-function delRecipe(id){if(!confirm('このレシピを削除しますか？'))return;recipes=recipes.filter(x=>x.id!==id);save();show('list');}
+function delRecipe(id){if(!confirm('このレシピを削除しますか？'))return;recipes=recipes.filter(x=>x.id!==id);idbDel(id);save();show('list');}
 function parseIngLines(text){let group='';const out=[];for(const l of text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)){if(l.startsWith('#')){group=l.slice(1);continue;}const sa=splitAmount(l);out.push({g:group,name:sa.name,amount:sa.amount});}return out;}
 function ingToText(ings){let last=null;const arr=[];for(const i of (ings||[])){if(i.g&&i.g!==last){arr.push('#'+i.g);last=i.g;}arr.push(i.name+(i.amount?' '+i.amount:''));}return arr.join('\n');}
 function clearForm(){document.getElementById('inUrl').value='';document.getElementById('inText').value='';const cf=document.getElementById('inCover');if(cf)cf.value='';document.getElementById('parseResult').style.display='none';const sb=document.getElementById('btnSave');if(sb)sb.disabled=false;editingCover='';}
@@ -460,6 +470,11 @@ if(save()){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);
 document.getElementById('btnShrink').onclick=()=>{if(!confirm('表紙の写真を小さく圧縮しますか？（保存容量を空けるためです。見た目はほとんど変わりません）'))return;shrinkCovers();};
 document.getElementById('btnReset').onclick=()=>{ if(!confirm('今のレシピを消して、初期のサンプル2件に戻しますか？（書き出ししていないデータは消えます）'))return; localStorage.removeItem(KEY); recipes=seed(); save(); show('list'); };
 renderList();
+(async()=>{const all=await idbGetAll();if(!all)return;idbOK=true;let changed=false;
+for(const r of recipes){if(!r.cover&&all[r.id]){r.cover=all[r.id];changed=true;}}
+for(const r of recipes){if(r.cover&&r.cover.indexOf('data:')===0&&!all[r.id]){if(await idbPut(r.id,r.cover))changed=true;}}
+if(changed){save();renderList();}
+})();
 </script>
 </body>
 </html>
