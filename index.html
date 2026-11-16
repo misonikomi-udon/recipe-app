@@ -251,7 +251,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.7';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.8';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -343,14 +343,27 @@ if(servHead)servings=servHead[1].replace(/\s/g,''); else if(servM)servings=servM
 const titleM=clean0.match(/料理名[:：]\s*(.+)/); if(titleM)title=titleM[1].trim();
 const authorM=clean0.match(/(?:投稿者|作者)[:：]\s*([^\n]+)/); if(authorM)author=authorM[1].trim();
 const introAuthorM=clean0.match(/「([^」]{1,40})」さんの(?:動画|レシピ|投稿|チャンネル)/); if(introAuthorM)author=introAuthorM[1].trim();
+const introAuthor2=clean0.match(/料理研究家の?「([^」]{1,40})」さん/)||clean0.match(/「([^」]{1,40})」さんが/); if(introAuthor2)author=introAuthor2[1].trim();
 if(!title){const introTitleM=clean0.match(/紹介されている、([^、。（\n]{2,24}?)(?:（[^）]*）)?の作り方/); if(introTitleM)title=introTitleM[1].trim();}
+if(!title){const quotedTitleM=clean0.match(/「([^」]{2,30})」の作り方/); if(quotedTitleM)title=quotedTitleM[1].trim();}
 for(const raw of lines){
 if(!raw)continue;
 const line=raw.replace(/^[✎✏️﹏_\s]+/,'');
 const isPointHead=line.length<=16&&/ポイント[:：]?$/.test(line);
 if(/^(シメ|〆|ポイント|コツ|アレンジ|備考|メモ)[:：]?$/.test(line)||isPointHead){inNote=true;notePoint=isPointHead;inIng=false;inSteps=false;continue;}
-if(inNote){const nm2=raw.match(/^(\d{1,2})[\.、\)]\s*(.+)/);if(notePoint&&nm2&&nm2[2].length>=10){inNote=false;notePoint=false;}else{note+=(note?' ':'')+stripTs(raw);continue;}}
+if(inNote){const nm2=raw.match(/^(\d{1,2})[\.、\)]\s*(.+)/);const ptHead=(notePoint&&nm2)?nm2[2].match(/^([^:：、。]{1,12})[:：]\s*.+$/):null;
+if(ptHead){note+=(note?' ':'')+stripTs(nm2[2]);continue;}
+if(notePoint&&nm2&&nm2[2].length>=10){inNote=false;notePoint=false;}else{note+=(note?' ':'')+stripTs(raw);continue;}}
 if(/^●/.test(raw)&&raw.length>=14){const t=raw.replace(/^●\s*/,'');note+=(note?' ':'')+stripTs(t);continue;}
+const zairyoLine=line.replace(/^[・\-\*•]\s*/,'').match(/^材料[:：]\s*(.+)$/);
+if(zairyoLine&&zairyoLine[1].includes('、')){
+for(const part of zairyoLine[1].replace(/。\s*$/,'').split('、')){
+const pm=part.trim().match(/^(.+?)[（\(](.+)[）\)]$/);
+if(pm)ingredients.push({g:group,name:pm[1].trim(),amount:pm[2].trim()});
+else{const sa3=splitAmount(part.trim());if(sa3.name)ingredients.push({g:group,name:sa3.name.replace(/[:：]$/,''),amount:sa3.amount});}
+}
+headMode=false;inIng=false;continue;
+}
 if(headMode){
 if(/材料/.test(line)&&line.length<=25){headMode=false;}
 else if(/(作り方|手順|ステップ)/.test(line)&&line.length<=25){headMode=false;}
