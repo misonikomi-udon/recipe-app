@@ -171,6 +171,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <button class="btn ghost" id="btnClearShop">チェック済みを消す</button>
 </section>
 
+<!-- 保管庫 -->
+<section class="view" id="view-archive">
+<h2 style="margin-top:2px">保管庫</h2>
+<p class="hint">「頻繁には作らないけど、いつか必要になりそう」なレシピの置き場所です。ここに入れたレシピは通常の一覧には出ません。戻すときはレシピを開いて「保管庫から戻す」を押してね。</p>
+<div class="grid" id="gridArchive"></div>
+<div class="empty" id="archiveEmpty" style="display:none">保管庫は空っぽだよ。</div>
+</section>
+
 <!-- データ -->
 <section class="view" id="view-data">
 <h2 style="margin-top:2px">データのバックアップ</h2>
@@ -193,6 +201,7 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <button data-nav="list" class="on">📷 一覧</button>
 <button data-nav="add">＋ 取り込む</button>
 <button data-nav="shop">🛒 買い物</button>
+<button data-nav="archive">📦 保管庫</button>
 <button data-nav="data">⚙️ データ</button>
 </nav>
 
@@ -234,7 +243,7 @@ steps:['長ネギの青い部分をザク切りにし、ごま油で黒っぽく
 inShop:false,made:false,madeCount:0,created:1}
 ];
 }
-function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length){r.forEach(x=>{if(x.made===undefined)x.made=false;if(!x.madeCount)x.madeCount=0;if(x.fav===undefined)x.fav=false;});return r;}}catch(e){} return seed();}
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length){r.forEach(x=>{if(x.made===undefined)x.made=false;if(!x.madeCount)x.madeCount=0;if(x.fav===undefined)x.fav=false;if(x.archived===undefined)x.archived=false;});return r;}}catch(e){} return seed();}
 let idbOK=false, dbPromise=null;
 function idbOpen(){if(dbPromise)return dbPromise;dbPromise=new Promise(res=>{try{const rq=indexedDB.open('mitsukaru-recipe-db',1);rq.onupgradeneeded=()=>{rq.result.createObjectStore('covers');};rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);}catch(e){res(null);}});return dbPromise;}
 async function idbPut(id,val){const db=await idbOpen();if(!db)return false;return new Promise(res=>{try{const tx=db.transaction('covers','readwrite');tx.objectStore('covers').put(val,id);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);}catch(e){res(false);}});}
@@ -256,7 +265,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件 ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v2.9';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='archive')renderArchive(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件（うち保管庫 '+recipes.filter(r=>r.archived).length+'件） ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v3.0';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
@@ -264,9 +273,22 @@ document.getElementById('madeChips').querySelectorAll('.chip').forEach(c=>c.oncl
 document.getElementById('favChip').onclick=function(){favFilter=!favFilter;this.classList.toggle('on',favFilter);renderList();};
 document.getElementById('q').addEventListener('input',renderList);
 
+function cardHtml(r){return `<article class="rcard" onclick="openDetail('${r.id}')">
+<div class="cover" style="background:${grad(r.title)}">${r.cover?`<img src="${esc(r.cover)}" alt="">`:esc(r.emoji||'🍳')}
+<span class="badge">${esc(r.source)}</span>${r.needsVideo?'<span class="warn">動画から抽出が必要</span>':''}${r.made?'<span class="made">✓ 作った</span>':''}<button class="favbtn${r.fav?'':' off'}" onclick="toggleFav(event,'${r.id}')" aria-label="お気に入り">${r.fav?'★':'☆'}</button></div>
+<div class="body"><div class="title">${esc(r.title)}</div>
+<div class="meta">${esc(r.author||'')}${r.servings?' ・ '+esc(r.servings):''}<br>材料 ${r.ingredients.length}件 ・ 手順 ${r.steps.length}件</div></div></article>`;}
+
+function renderArchive(){
+const list=recipes.filter(r=>r.archived).sort((a,b)=>b.created-a.created);
+document.getElementById('gridArchive').innerHTML=list.map(cardHtml).join('');
+document.getElementById('archiveEmpty').style.display=list.length?'none':'block';
+}
+
 function renderList(){
 const q=(document.getElementById('q').value||'').trim();
 const list=recipes.filter(r=>{
+if(r.archived)return false;
 if(filter!=='all'){const s=r.source==='X'||r.source==='YouTube'||r.source==='TikTok'?r.source:'other';if(s!==filter)return false;}
 if(madeFilter==='new'&&r.made)return false; if(madeFilter==='made'&&!r.made)return false;
 if(favFilter&&!r.fav)return false;
@@ -274,35 +296,34 @@ if(q){const hay=r.title+' '+r.author+' '+r.ingredients.map(i=>i.name).join(' ');
 return true;
 }).sort((a,b)=>b.created-a.created);
 const g=document.getElementById('grid');
-g.innerHTML=list.map(r=>`<article class="rcard" onclick="openDetail('${r.id}')">
-<div class="cover" style="background:${grad(r.title)}">${r.cover?`<img src="${esc(r.cover)}" alt="">`:esc(r.emoji||'🍳')}
-<span class="badge">${esc(r.source)}</span>${r.needsVideo?'<span class="warn">動画から抽出が必要</span>':''}${r.made?'<span class="made">✓ 作った</span>':''}<button class="favbtn${r.fav?'':' off'}" onclick="toggleFav(event,'${r.id}')" aria-label="お気に入り">${r.fav?'★':'☆'}</button></div>
-<div class="body"><div class="title">${esc(r.title)}</div>
-<div class="meta">${esc(r.author||'')}${r.servings?' ・ '+esc(r.servings):''}<br>材料 ${r.ingredients.length}件 ・ 手順 ${r.steps.length}件</div></div></article>`).join('');
+g.innerHTML=list.map(cardHtml).join('');
 const le=document.getElementById('listEmpty');
 if(!list.length){le.style.display='block';le.innerHTML=recipes.length?'条件に合うレシピがないよ':'まだレシピがないよ。<br>下の「＋ 取り込む」から最初の1件を入れてみてね。';}
 else le.style.display='none';
 }
 
+let detailFrom='list';
 function openDetail(id){
 const r=recipes.find(x=>x.id===id); if(!r)return;
+const curView=document.querySelector('.view.on'); if(curView&&(curView.id==='view-list'||curView.id==='view-archive'))detailFrom=curView.id==='view-archive'?'archive':'list';
 let lastG=null, ingHtml='';
 for(const i of r.ingredients){
 if(i.g&&i.g!==lastG){ingHtml+=`<div class="group">${esc(i.g)}</div>`;lastG=i.g;}
 ingHtml+=`<li><span style="flex:1">${esc(i.name)}</span><span>${esc(i.amount)}</span></li>`;
 }
 document.getElementById('view-detail').innerHTML=`
-<button class="btn ghost" style="margin-top:0" onclick="show('list')">← 一覧にもどる</button>
+<button class="btn ghost" style="margin-top:0" onclick="show('${detailFrom}')">← ${detailFrom==='archive'?'保管庫':'一覧'}にもどる</button>
 <div class="detail-cover" style="background:${grad(r.title)};margin-top:12px">${r.cover?`<img src="${esc(r.cover)}" alt="">`:esc(r.emoji||'🍳')}</div>
 <h2>${esc(r.title)}</h2>
 <div class="meta" style="color:var(--sub);font-size:13px">${esc(r.source)} ／ ${esc(r.author||'')}${r.servings?' ／ '+esc(r.servings):''}</div>
-${r.note?`<div class="note">${esc(r.note)}</div>`:''}${r.needsVideo?'<p class="hint">→ 「＋ 取り込む」で種類を「AIのまとめ」にして、YouTubeのAIなどにまとめさせた文章を貼ると、このタイプもカード化できます。</p>':''}
+${r.archived?'<div class="note">📦 このレシピは保管庫に入っています（一覧には出ません）</div>':''}${r.note?`<div class="note">${esc(r.note)}</div>`:''}${r.needsVideo?'<p class="hint">→ 「＋ 取り込む」で種類を「AIのまとめ」にして、YouTubeのAIなどにまとめさせた文章を貼ると、このタイプもカード化できます。</p>':''}
 <h3>材料</h3>${r.ingredients.length?`<ul class="ing">${ingHtml}</ul>`:'<p class="hint">材料はまだ抽出できていません。</p>'}
 <h3>手順</h3>${r.steps.length?`<ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<p class="hint">手順はまだ抽出できていません。</p>'}
 <label class="f">表紙の写真を変更（完成図のスクショなど）</label>
 <input type="file" accept="image/*" onchange="changeCover(event,'${r.id}')">
 <button class="btn sub" onclick="toggleMade('${r.id}')">${r.made?'✓ 作ったことある（タップで「まだ」に戻す）':'🍳 作ったことある'}</button>
 <button class="btn sub" onclick="toggleFav(null,'${r.id}')">${r.fav?'★ お気に入り（タップで外す）':'☆ お気に入りに追加'}</button>
+<button class="btn ghost" onclick="toggleArchive('${r.id}')">${r.archived?'📤 保管庫から戻す（一覧に出す）':'📦 保管庫に入れる（一覧から隠す）'}</button>
 ${r.made?`<button class="btn ghost" onclick="addMade('${r.id}')">＋ もう1回作った（今まで ${r.madeCount||1} 回）</button>`:''}
 <button class="btn ${r.inShop?'ghost':'sub'}" onclick="toggleShop('${r.id}')">${r.inShop?'✓ 買い物リストに入ってます（外す）':'🛒 買い物リストに入れる'}</button>
 <p style="margin-top:16px">出典：<a class="src" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></p>
@@ -314,7 +335,8 @@ function changeCover(ev,id){const f=ev.target.files[0];if(!f)return;readCoverFil
 function toggleMade(id){const r=recipes.find(x=>x.id===id);r.made=!r.made;if(r.made)r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function addMade(id){const r=recipes.find(x=>x.id===id);r.made=true;r.madeCount=(r.madeCount||0)+1;save();openDetail(id);}
 function toggleShop(id){const r=recipes.find(x=>x.id===id);r.inShop=!r.inShop;save();openDetail(id);}
-function toggleFav(ev,id){if(ev&&ev.stopPropagation)ev.stopPropagation();const r=recipes.find(x=>x.id===id);if(!r)return;r.fav=!r.fav;save();const cur=document.querySelector('.view.on');if(cur&&cur.id==='view-detail')openDetail(id);else renderList();}
+function toggleFav(ev,id){if(ev&&ev.stopPropagation)ev.stopPropagation();const r=recipes.find(x=>x.id===id);if(!r)return;r.fav=!r.fav;save();const cur=document.querySelector('.view.on');if(cur&&cur.id==='view-detail')openDetail(id);else if(cur&&cur.id==='view-archive')renderArchive();else renderList();}
+function toggleArchive(id){const r=recipes.find(x=>x.id===id);if(!r)return;r.archived=!r.archived;save();toast(r.archived?'📦 保管庫に入れたよ':'📤 一覧に戻したよ');show('list');}
 function delRecipe(id){if(!confirm('このレシピを削除しますか？'))return;recipes=recipes.filter(x=>x.id!==id);idbDel(id);save();show('list');}
 function parseIngLines(text){let group='';const out=[];for(const l of text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)){if(l.startsWith('#')){group=l.slice(1);continue;}const sa=splitAmount(l);out.push({g:group,name:sa.name,amount:sa.amount});}return out;}
 function ingToText(ings){let last=null;const arr=[];for(const i of (ings||[])){if(i.g&&i.g!==last){arr.push('#'+i.g);last=i.g;}arr.push(i.name+(i.amount?' '+i.amount:''));}return arr.join('\n');}
@@ -329,7 +351,7 @@ function backToDetail(){if(editingId)openDetail(editingId);else show('list');}
 
 function renderShop(){
 const map=new Map();
-for(const r of recipes){if(!r.inShop)continue;for(const i of r.ingredients){const k=i.name;if(!map.has(k))map.set(k,[]);map.get(k).push((i.amount?i.amount+' ':'')+'（'+r.title+'）');}}
+for(const r of recipes){if(!r.inShop||r.archived)continue;for(const i of r.ingredients){const k=i.name;if(!map.has(k))map.set(k,[]);map.get(k).push((i.amount?i.amount+' ':'')+'（'+r.title+'）');}}
 const ul=document.getElementById('shopList');
 ul.innerHTML=[...map.entries()].map(([name,from])=>`<li><label><input type="checkbox" onchange="this.closest('li').classList.toggle('done',this.checked)"><span><b>${esc(name)}</b><br><small style="color:var(--sub)">${esc(from.join(' ／ '))}</small></span></label></li>`).join('');
 document.getElementById('shopEmpty').style.display=map.size?'none':'block';
@@ -518,7 +540,7 @@ const parsed=JSON.parse(rd.result);
 const arr=Array.isArray(parsed)?parsed:parsed.recipes;
 if(!Array.isArray(arr))throw new Error('bad format');
 const ids=new Set(recipes.map(r=>r.id)); let added=0; let fixed=0;
-for(const r of arr){ if(r&&r.id&&r.title){ if(!ids.has(r.id)){ if(r.made===undefined)r.made=false; if(!r.madeCount)r.madeCount=0; if(r.fav===undefined)r.fav=false; if(!Array.isArray(r.ingredients))r.ingredients=[]; if(!Array.isArray(r.steps))r.steps=[]; recipes.push(r); ids.add(r.id); added++; } else { const ex=recipes.find(x=>x.id===r.id); if(ex&&!ex.cover&&r.cover){ ex.cover=r.cover; fixed++; } } } }
+for(const r of arr){ if(r&&r.id&&r.title){ if(!ids.has(r.id)){ if(r.made===undefined)r.made=false; if(!r.madeCount)r.madeCount=0; if(r.fav===undefined)r.fav=false; if(r.archived===undefined)r.archived=false; if(!Array.isArray(r.ingredients))r.ingredients=[]; if(!Array.isArray(r.steps))r.steps=[]; recipes.push(r); ids.add(r.id); added++; } else { const ex=recipes.find(x=>x.id===r.id); if(ex&&!ex.cover&&r.cover){ ex.cover=r.cover; fixed++; } } } }
 save(); alert(added+'件のレシピを追加しました。'+(fixed?'（写真が付いていなかった'+fixed+'件に、バックアップの写真を付けました）':'')); show('list');
 }catch(e){ alert('読み込めませんでした。書き出したファイルかどうか確認してね。'); }
 };
