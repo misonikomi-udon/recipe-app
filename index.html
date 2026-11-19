@@ -83,6 +83,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <div class="chips" id="favChips">
 <button class="chip" id="favChip">⭐ お気に入りだけ</button>
 </div>
+<div class="chips" id="catChips">
+<button class="chip on" data-c="all">カテゴリー 全部</button>
+<button class="chip" data-c="パスタ">パスタ</button>
+<button class="chip" data-c="肉">肉</button>
+<button class="chip" data-c="魚">魚</button>
+<button class="chip" data-c="丼">丼</button>
+<button class="chip" data-c="その他">その他</button>
+</div>
 </div>
 </header>
 
@@ -127,6 +135,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <div><label class="f">何人前</label><input type="text" id="outServ"></div>
 <div><label class="f">投稿者</label><input type="text" id="outAuthor"></div>
 </div>
+<label class="f">カテゴリー（料理名から自動で選んであります）</label>
+<select id="outCat">
+<option value="パスタ">パスタ</option>
+<option value="肉">肉</option>
+<option value="魚">魚</option>
+<option value="丼">丼</option>
+<option value="その他">その他</option>
+</select>
 <label class="f">材料（1行に1つ。見出しは「#タルタル」のように # で）</label>
 <textarea id="outIng" rows="8"></textarea>
 <label class="f">手順（1行に1ステップ）</label>
@@ -151,6 +167,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <div><label class="f">何人前</label><input type="text" id="eServ"></div>
 <div><label class="f">投稿者</label><input type="text" id="eAuthor"></div>
 </div>
+<label class="f">カテゴリー</label>
+<select id="eCat">
+<option value="パスタ">パスタ</option>
+<option value="肉">肉</option>
+<option value="魚">魚</option>
+<option value="丼">丼</option>
+<option value="その他">その他</option>
+</select>
 <label class="f">材料（1行に1つ。グループ見出しは「#タレ」のように # で）</label>
 <textarea id="eIng" rows="9"></textarea>
 <label class="f">手順（1行に1ステップ）</label>
@@ -208,12 +232,25 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <script>
 const KEY='mitsukaru-recipe-v1';
 const CIRCLED=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+const CATS=['パスタ','肉','魚','丼','その他'];
+function guessCat(r){
+const t=(r&&r.title)||'';
+const ings=((r&&r.ingredients)||[]).map(i=>i.name).join(' ');
+if(/丼/.test(t))return '丼';
+if(/パスタ|スパゲッティ|スパゲティ/.test(t))return 'パスタ';
+const fish=/鮭|鯖|鯵|鰯|秋刀魚|鱈|鮪|まぐろ|マグロ|鰹|かつお|カツオ|しらす|あさり|しじみ|えび|エビ|海老|いか|イカ|たこ|タコ|牡蠣|ホタテ|魚/;
+if(fish.test(t))return '魚';
+const meat=/豚|鶏|牛|ひき肉|挽き肉|ベーコン|ハム|ソーセージ|肉|ささみ|チキン|手羽/;
+if(meat.test(t)||meat.test(ings))return '肉';
+if(fish.test(ings))return '魚';
+return 'その他';
+}
 let recipes=load();
-let filter='all', madeFilter='all', favFilter=false, editingCover='';
+let filter='all', madeFilter='all', favFilter=false, catFilter='all', editingCover='';
 
 function seed(){
 return [
-{id:'sample-tiktok',title:'ささみチキン南蛮',servings:'2〜3人前',author:'みずき @uchi____gohan',source:'TikTok',
+{id:'sample-tiktok',title:'ささみチキン南蛮',cat:'肉',servings:'2〜3人前',author:'みずき @uchi____gohan',source:'TikTok',
 url:'https://www.tiktok.com/@uchi____gohan/video/7502425037740313864',cover:'',emoji:'🍗',needsVideo:false,note:'',
 ingredients:[
 {g:'',name:'ささみ',amount:'6本'},{g:'',name:'酒',amount:'大さじ1'},{g:'',name:'塩こしょう',amount:'適量'},
@@ -229,7 +266,7 @@ steps:['ささみの筋を取って、酒と塩こしょうを揉み込んでお
 '甘酢の材料を合わせて600Wで1分ほど加熱し、砂糖を溶かす',
 '食べる直前に揚げたささみを甘酢にくぐらせ、タルタルをかける'],
 inShop:false,made:false,madeCount:0,created:2},
-{id:'sample-ryuji',title:'無水焦がしねぎ鍋',servings:'2〜3人前',author:'リュウジ @ore825',source:'X',
+{id:'sample-ryuji',title:'無水焦がしねぎ鍋',cat:'肉',servings:'2〜3人前',author:'リュウジ @ore825',source:'X',
 url:'https://x.com/ore825/status/2120104927070736633',cover:'https://i.ytimg.com/vi/doMZTVzrb30/hqdefault.jpg',emoji:'🍲',needsVideo:false,
 note:'シメ：残ったスープに中華麺を入れ、塩と追いごま油で味を調えるとラーメンとして絶品。材料と手順はYouTubeのAIまとめ経由でカード化しました。ポン酢ではなく塩で食べるのがおすすめだそう。',
 ingredients:[
@@ -243,7 +280,7 @@ steps:['長ネギの青い部分をザク切りにし、ごま油で黒っぽく
 inShop:false,made:false,madeCount:0,created:1}
 ];
 }
-function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length){r.forEach(x=>{if(x.made===undefined)x.made=false;if(!x.madeCount)x.madeCount=0;if(x.fav===undefined)x.fav=false;if(x.archived===undefined)x.archived=false;});return r;}}catch(e){} return seed();}
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length){r.forEach(x=>{if(x.made===undefined)x.made=false;if(!x.madeCount)x.madeCount=0;if(x.fav===undefined)x.fav=false;if(x.archived===undefined)x.archived=false;if(!x.cat||!CATS.includes(x.cat))x.cat=guessCat(x);});return r;}}catch(e){} return seed();}
 let idbOK=false, dbPromise=null;
 function idbOpen(){if(dbPromise)return dbPromise;dbPromise=new Promise(res=>{try{const rq=indexedDB.open('mitsukaru-recipe-db',1);rq.onupgradeneeded=()=>{rq.result.createObjectStore('covers');};rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);}catch(e){res(null);}});return dbPromise;}
 async function idbPut(id,val){const db=await idbOpen();if(!db)return false;return new Promise(res=>{try{const tx=db.transaction('covers','readwrite');tx.objectStore('covers').put(val,id);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);}catch(e){res(false);}});}
@@ -265,19 +302,20 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='archive')renderArchive(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件（うち保管庫 '+recipes.filter(r=>r.archived).length+'件） ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v3.0';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='archive')renderArchive(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件（うち保管庫 '+recipes.filter(r=>r.archived).length+'件） ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v3.1';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
 document.getElementById('madeChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{madeFilter=c.dataset.m;document.getElementById('madeChips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
 document.getElementById('favChip').onclick=function(){favFilter=!favFilter;this.classList.toggle('on',favFilter);renderList();};
+document.getElementById('catChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{catFilter=c.dataset.c;document.getElementById('catChips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
 document.getElementById('q').addEventListener('input',renderList);
 
 function cardHtml(r){return `<article class="rcard" onclick="openDetail('${r.id}')">
 <div class="cover" style="background:${grad(r.title)}">${r.cover?`<img src="${esc(r.cover)}" alt="">`:esc(r.emoji||'🍳')}
 <span class="badge">${esc(r.source)}</span>${r.needsVideo?'<span class="warn">動画から抽出が必要</span>':''}${r.made?'<span class="made">✓ 作った</span>':''}<button class="favbtn${r.fav?'':' off'}" onclick="toggleFav(event,'${r.id}')" aria-label="お気に入り">${r.fav?'★':'☆'}</button></div>
 <div class="body"><div class="title">${esc(r.title)}</div>
-<div class="meta">${esc(r.author||'')}${r.servings?' ・ '+esc(r.servings):''}<br>材料 ${r.ingredients.length}件 ・ 手順 ${r.steps.length}件</div></div></article>`;}
+<div class="meta">${esc(r.author||'')}${r.servings?' ・ '+esc(r.servings):''} ・ ${esc(r.cat||'その他')}<br>材料 ${r.ingredients.length}件 ・ 手順 ${r.steps.length}件</div></div></article>`;}
 
 function renderArchive(){
 const list=recipes.filter(r=>r.archived).sort((a,b)=>b.created-a.created);
@@ -292,6 +330,7 @@ if(r.archived)return false;
 if(filter!=='all'){const s=r.source==='X'||r.source==='YouTube'||r.source==='TikTok'?r.source:'other';if(s!==filter)return false;}
 if(madeFilter==='new'&&r.made)return false; if(madeFilter==='made'&&!r.made)return false;
 if(favFilter&&!r.fav)return false;
+if(catFilter!=='all'&&(r.cat||'その他')!==catFilter)return false;
 if(q){const hay=r.title+' '+r.author+' '+r.ingredients.map(i=>i.name).join(' ');if(!hay.includes(q))return false;}
 return true;
 }).sort((a,b)=>b.created-a.created);
@@ -315,7 +354,9 @@ document.getElementById('view-detail').innerHTML=`
 <button class="btn ghost" style="margin-top:0" onclick="show('${detailFrom}')">← ${detailFrom==='archive'?'保管庫':'一覧'}にもどる</button>
 <div class="detail-cover" style="background:${grad(r.title)};margin-top:12px">${r.cover?`<img src="${esc(r.cover)}" alt="">`:esc(r.emoji||'🍳')}</div>
 <h2>${esc(r.title)}</h2>
-<div class="meta" style="color:var(--sub);font-size:13px">${esc(r.source)} ／ ${esc(r.author||'')}${r.servings?' ／ '+esc(r.servings):''}</div>
+<div class="meta" style="color:var(--sub);font-size:13px">${esc(r.source)} ／ ${esc(r.cat||'その他')} ／ ${esc(r.author||'')}${r.servings?' ／ '+esc(r.servings):''}</div>
+<label class="f">カテゴリーを変更</label>
+<select onchange="setCat('${r.id}',this.value)">${CATS.map(c=>`<option value="${c}"${(r.cat||'その他')===c?' selected':''}>${c}</option>`).join('')}</select>
 ${r.archived?'<div class="note">📦 このレシピは保管庫に入っています（一覧には出ません）</div>':''}${r.note?`<div class="note">${esc(r.note)}</div>`:''}${r.needsVideo?'<p class="hint">→ 「＋ 取り込む」で種類を「AIのまとめ」にして、YouTubeのAIなどにまとめさせた文章を貼ると、このタイプもカード化できます。</p>':''}
 <h3>材料</h3>${r.ingredients.length?`<ul class="ing">${ingHtml}</ul>`:'<p class="hint">材料はまだ抽出できていません。</p>'}
 <h3>手順</h3>${r.steps.length?`<ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<p class="hint">手順はまだ抽出できていません。</p>'}
@@ -337,6 +378,7 @@ function addMade(id){const r=recipes.find(x=>x.id===id);r.made=true;r.madeCount=
 function toggleShop(id){const r=recipes.find(x=>x.id===id);r.inShop=!r.inShop;save();openDetail(id);}
 function toggleFav(ev,id){if(ev&&ev.stopPropagation)ev.stopPropagation();const r=recipes.find(x=>x.id===id);if(!r)return;r.fav=!r.fav;save();const cur=document.querySelector('.view.on');if(cur&&cur.id==='view-detail')openDetail(id);else if(cur&&cur.id==='view-archive')renderArchive();else renderList();}
 function toggleArchive(id){const r=recipes.find(x=>x.id===id);if(!r)return;r.archived=!r.archived;save();toast(r.archived?'📦 保管庫に入れたよ':'📤 一覧に戻したよ');show('list');}
+function setCat(id,v){const r=recipes.find(x=>x.id===id);if(!r||!CATS.includes(v))return;r.cat=v;save();toast('カテゴリーを「'+v+'」にしたよ');}
 function delRecipe(id){if(!confirm('このレシピを削除しますか？'))return;recipes=recipes.filter(x=>x.id!==id);idbDel(id);save();show('list');}
 function parseIngLines(text){let group='';const out=[];for(const l of text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)){if(l.startsWith('#')){group=l.slice(1);continue;}const sa=splitAmount(l);out.push({g:group,name:sa.name,amount:sa.amount});}return out;}
 function ingToText(ings){let last=null;const arr=[];for(const i of (ings||[])){if(i.g&&i.g!==last){arr.push('#'+i.g);last=i.g;}arr.push(i.name+(i.amount?' '+i.amount:''));}return arr.join('\n');}
@@ -345,6 +387,7 @@ function toast(msg){const t=document.getElementById('toast');if(!t)return;t.text
 let editingId=null;
 function openEdit(id){const r=recipes.find(x=>x.id===id);if(!r)return;editingId=id;
 document.getElementById('eTitle').value=r.title||'';document.getElementById('eServ').value=r.servings||'';document.getElementById('eAuthor').value=r.author||'';
+document.getElementById('eCat').value=r.cat||'その他';
 document.getElementById('eIng').value=ingToText(r.ingredients);document.getElementById('eSteps').value=(r.steps||[]).join('\n');document.getElementById('eNote').value=r.note||'';document.getElementById('eUrl').value=(r.url&&r.url!=='#')?r.url:'';
 show('edit');}
 function backToDetail(){if(editingId)openDetail(editingId);else show('list');}
@@ -477,6 +520,7 @@ const p=parseText(text);
 document.getElementById('outTitle').value=p.title||'（料理名を入力してね）';
 document.getElementById('outServ').value=p.servings;
 document.getElementById('outAuthor').value=p.author||'';
+document.getElementById('outCat').value=guessCat({title:p.title,ingredients:p.ingredients});
 document.getElementById('outIng').value=ingToText(p.ingredients);
 document.getElementById('outSteps').value=p.steps.join('\n');
 document.getElementById('outNote').value=p.note||'';
@@ -492,6 +536,7 @@ const ingredients=parseIngLines(document.getElementById('outIng').value);
 const steps=document.getElementById('outSteps').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
 const id=ytId(url)||ytId(text);
 const r={id:'r'+Date.now(),title:document.getElementById('outTitle').value.trim()||'無題のレシピ',
+cat:document.getElementById('outCat').value,
 servings:document.getElementById('outServ').value.trim(),author:document.getElementById('outAuthor').value.trim(),
 source:detectSource(url),url:url||'#',cover:editingCover||(id?'https://i.ytimg.com/vi/'+id+'/hqdefault.jpg':''),
 emoji:'🍳',needsVideo:ingredients.length===0,
@@ -508,6 +553,7 @@ document.getElementById('btnClearForm').onclick=()=>{if(!confirm('取り込み�
 document.getElementById('btnEditSave').onclick=()=>{
 const r=recipes.find(x=>x.id===editingId);if(!r)return;
 r.title=document.getElementById('eTitle').value.trim()||r.title;
+r.cat=document.getElementById('eCat').value;
 r.servings=document.getElementById('eServ').value.trim();r.author=document.getElementById('eAuthor').value.trim();
 r.ingredients=parseIngLines(document.getElementById('eIng').value);
 r.steps=document.getElementById('eSteps').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
@@ -540,7 +586,7 @@ const parsed=JSON.parse(rd.result);
 const arr=Array.isArray(parsed)?parsed:parsed.recipes;
 if(!Array.isArray(arr))throw new Error('bad format');
 const ids=new Set(recipes.map(r=>r.id)); let added=0; let fixed=0;
-for(const r of arr){ if(r&&r.id&&r.title){ if(!ids.has(r.id)){ if(r.made===undefined)r.made=false; if(!r.madeCount)r.madeCount=0; if(r.fav===undefined)r.fav=false; if(r.archived===undefined)r.archived=false; if(!Array.isArray(r.ingredients))r.ingredients=[]; if(!Array.isArray(r.steps))r.steps=[]; recipes.push(r); ids.add(r.id); added++; } else { const ex=recipes.find(x=>x.id===r.id); if(ex&&!ex.cover&&r.cover){ ex.cover=r.cover; fixed++; } } } }
+for(const r of arr){ if(r&&r.id&&r.title){ if(!ids.has(r.id)){ if(r.made===undefined)r.made=false; if(!r.madeCount)r.madeCount=0; if(r.fav===undefined)r.fav=false; if(r.archived===undefined)r.archived=false; if(!r.cat||!CATS.includes(r.cat))r.cat=guessCat(r); if(!Array.isArray(r.ingredients))r.ingredients=[]; if(!Array.isArray(r.steps))r.steps=[]; recipes.push(r); ids.add(r.id); added++; } else { const ex=recipes.find(x=>x.id===r.id); if(ex&&!ex.cover&&r.cover){ ex.cover=r.cover; fixed++; } } } }
 save(); alert(added+'件のレシピを追加しました。'+(fixed?'（写真が付いていなかった'+fixed+'件に、バックアップの写真を付けました）':'')); show('list');
 }catch(e){ alert('読み込めませんでした。書き出したファイルかどうか確認してね。'); }
 };
