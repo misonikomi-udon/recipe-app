@@ -86,9 +86,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <div class="chips" id="catChips">
 <button class="chip on" data-c="all">カテゴリー 全部</button>
 <button class="chip" data-c="パスタ">パスタ</button>
+<button class="chip" data-c="ラーメン">ラーメン</button>
+<button class="chip" data-c="うどん">うどん</button>
 <button class="chip" data-c="肉">肉</button>
 <button class="chip" data-c="魚">魚</button>
 <button class="chip" data-c="丼">丼</button>
+<button class="chip" data-c="スープ">スープ</button>
+<button class="chip" data-c="副菜">副菜</button>
+<button class="chip" data-c="タレ">タレ</button>
 <button class="chip" data-c="その他">その他</button>
 </div>
 </div>
@@ -138,9 +143,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <label class="f">カテゴリー（料理名から自動で選んであります）</label>
 <select id="outCat">
 <option value="パスタ">パスタ</option>
+<option value="ラーメン">ラーメン</option>
+<option value="うどん">うどん</option>
 <option value="肉">肉</option>
 <option value="魚">魚</option>
 <option value="丼">丼</option>
+<option value="スープ">スープ</option>
+<option value="副菜">副菜</option>
+<option value="タレ">タレ</option>
 <option value="その他">その他</option>
 </select>
 <label class="f">材料（1行に1つ。見出しは「#タルタル」のように # で）</label>
@@ -170,9 +180,14 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <label class="f">カテゴリー</label>
 <select id="eCat">
 <option value="パスタ">パスタ</option>
+<option value="ラーメン">ラーメン</option>
+<option value="うどん">うどん</option>
 <option value="肉">肉</option>
 <option value="魚">魚</option>
 <option value="丼">丼</option>
+<option value="スープ">スープ</option>
+<option value="副菜">副菜</option>
+<option value="タレ">タレ</option>
 <option value="その他">その他</option>
 </select>
 <label class="f">材料（1行に1つ。グループ見出しは「#タレ」のように # で）</label>
@@ -232,14 +247,18 @@ a.src{color:var(--accent);word-break:break-all;font-size:13px}
 <script>
 const KEY='mitsukaru-recipe-v1';
 const CIRCLED=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
-const CATS=['パスタ','肉','魚','丼','その他'];
+const CATS=['パスタ','ラーメン','うどん','肉','魚','丼','スープ','副菜','タレ','その他'];
 function guessCat(r){
 const t=(r&&r.title)||'';
 const ings=((r&&r.ingredients)||[]).map(i=>i.name).join(' ');
 if(/丼/.test(t))return '丼';
 if(/パスタ|スパゲッティ|スパゲティ/.test(t))return 'パスタ';
+if(/ラーメン|らーめん|らぁ麺|油そば/.test(t))return 'ラーメン';
+if(/うどん/.test(t))return 'うどん';
+if(/スープ|味噌汁|ポタージュ/.test(t))return 'スープ';
 const fish=/鮭|鯖|鯵|鰯|秋刀魚|鱈|鮪|まぐろ|マグロ|鰹|かつお|カツオ|しらす|あさり|しじみ|えび|エビ|海老|いか|イカ|たこ|タコ|牡蠣|ホタテ|魚/;
 if(fish.test(t))return '魚';
+if(/タレ|ダレ|ドレッシング/.test(t))return 'タレ';
 const meat=/豚|鶏|牛|ひき肉|挽き肉|ベーコン|ハム|ソーセージ|肉|ささみ|チキン|手羽/;
 if(meat.test(t)||meat.test(ings))return '肉';
 if(fish.test(ings))return '魚';
@@ -302,7 +321,7 @@ document.getElementById('view-'+name).classList.add('on');
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===name));
 document.getElementById('searchBox').style.display=(name==='list')?'block':'none';
 window.scrollTo(0,0);
-if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='archive')renderArchive(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件（うち保管庫 '+recipes.filter(r=>r.archived).length+'件） ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v3.1';}
+if(name==='list')renderList(); if(name==='shop')renderShop(); if(name==='archive')renderArchive(); if(name==='data'){const kb=Math.round(((localStorage.getItem(KEY)||'').length*2)/1024);document.getElementById('dataCount').textContent='現在のレシピ：'+recipes.length+'件（うち保管庫 '+recipes.filter(r=>r.archived).length+'件） ／ 文章データ：約'+kb+'KB（写真は別の大きな保管庫に保存されます） ／ アプリの版：v3.2';}
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.nav));
 document.getElementById('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.getElementById('chips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));renderList();});
